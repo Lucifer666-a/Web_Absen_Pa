@@ -18,7 +18,7 @@ if (empty($key) || empty($nama) || empty($jabatan) || empty($pin_acara) || empty
     exit;
 }
 
-// 1. Validasi Token dan Ambil PIN Aktif
+// 1. Validasi Token Statis
 $stmt = $pdo->prepare("SELECT * FROM pengaturan WHERE access_token = ? LIMIT 1");
 $stmt->execute([$key]);
 $pengaturan = $stmt->fetch();
@@ -28,19 +28,25 @@ if (!$pengaturan) {
     die("Akses ditolak. Token tidak valid.");
 }
 
-// 2. Validasi PIN Acara
-if ($pin_acara !== $pengaturan['pin_acara']) {
+// 2. Ambil Acara Aktif
+$stmtAcara = $pdo->query("SELECT * FROM acara WHERE status = 'BUKA' ORDER BY id DESC LIMIT 1");
+$acara_aktif = $stmtAcara->fetch();
+
+if (!$acara_aktif) {
+    header("Location: index.php?key=" . urlencode($key) . "&error=closed");
+    exit;
+}
+
+// 3. Validasi PIN Acara terhadap acara aktif
+if ($pin_acara !== $acara_aktif['pin_acara']) {
     header("Location: index.php?key=" . urlencode($key) . "&error=pin");
     exit;
 }
 
-// 3. Sanitasi & Siapkan IP Address
-$ip_address = $_SERVER['REMOTE_ADDR'];
-
-// 4. Insert ke Database
-$sql = "INSERT INTO presensi (nama, jabatan, tanda_tangan, ip_address) VALUES (?, ?, ?, ?)";
+// 4. Insert ke Database (Menyimpan acara_id dan tanpa ip_address)
+$sql = "INSERT INTO presensi (acara_id, nama, jabatan, tanda_tangan) VALUES (?, ?, ?, ?)";
 $insertStmt = $pdo->prepare($sql);
-$success = $insertStmt->execute([$nama, $jabatan, $tanda_tangan, $ip_address]);
+$success = $insertStmt->execute([$acara_aktif['id'], $nama, $jabatan, $tanda_tangan]);
 
 if ($success) {
     header("Location: success.php?nama=" . urlencode($nama));
