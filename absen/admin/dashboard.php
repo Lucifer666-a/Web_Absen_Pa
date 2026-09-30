@@ -2,12 +2,11 @@
 // absen/admin/dashboard.php
 require_once 'auth_check.php';
 
-// Ambil Token Statis
-$stmtToken = $pdo->query("SELECT access_token FROM pengaturan LIMIT 1");
-$pengaturan = $stmtToken->fetch();
-$access_token = $pengaturan['access_token'] ?? '';
-
-$url_presensi = "http://" . $_SERVER['HTTP_HOST'] . str_replace('/admin/dashboard.php', '/index.php', $_SERVER['PHP_SELF']) . "?key=" . $access_token;
+// Base URL REST API untuk Aplikasi Android
+$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+$api_base_url = $protocol . $_SERVER['HTTP_HOST'] . str_replace('/admin/dashboard.php', '/api/', $_SERVER['PHP_SELF']);
+$api_acara_url = $api_base_url . 'acara.php';
+$api_absen_url = $api_base_url . 'absen.php';
 
 // Ambil daftar semua acara untuk dropdown
 $stmtListAcara = $pdo->query("SELECT * FROM acara ORDER BY id DESC");
@@ -79,13 +78,21 @@ $msg = $_GET['msg'] ?? '';
         <div class="col-md-8 mb-3">
             <div class="card card-stat h-100">
                 <div class="card-body">
-                    <h6 class="text-muted fw-bold">Pengaturan Aplikasi Android</h6>
-                    <p class="mb-1 fw-bold">URL Endpoint Statis (Untuk Webview):</p>
-                    <div class="input-group mb-3">
-                        <input type="text" class="form-control" id="linkPresensi" value="<?= htmlspecialchars($url_presensi) ?>" readonly>
-                        <button class="btn btn-outline-secondary" type="button" onclick="copyLink()">Copy</button>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="text-muted fw-bold mb-0">Integrasi REST API (Aplikasi Android)</h6>
+                        <span class="badge bg-success-subtle text-success border">REST API Aktif</span>
                     </div>
-                    <small class="text-info">*Link ini bersifat statis dan permanen. Gunakan link ini di aplikasi mobile Android Anda.</small>
+                    <p class="mb-1 text-secondary small">Base URL API yang dimasukkan ke aplikasi Android:</p>
+                    <div class="input-group mb-2">
+                        <span class="input-group-text bg-light text-muted small">Base API</span>
+                        <input type="text" class="form-control font-monospace" id="linkApiBase" value="<?= htmlspecialchars($api_base_url) ?>" readonly>
+                        <button class="btn btn-outline-primary" type="button" onclick="copyApiLink('linkApiBase')">Copy Base URL</button>
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="badge bg-primary-subtle text-primary border" title="Ambil daftar acara yang buka">GET /api/acara.php</span>
+                        <span class="badge bg-success-subtle text-success border" title="Kirim absensi peserta">POST /api/absen.php</span>
+                    </div>
+                    <small class="text-muted d-block mt-2">*Aplikasi Android memanggil endpoint di atas untuk mendapatkan daftar acara aktif dan mengirim data presensi ke database.</small>
                 </div>
             </div>
         </div>
@@ -216,12 +223,12 @@ $msg = $_GET['msg'] ?? '';
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-function copyLink() {
-    var copyText = document.getElementById("linkPresensi");
+function copyApiLink(elementId) {
+    var copyText = document.getElementById(elementId);
     copyText.select();
     copyText.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(copyText.value);
-    alert("Link disalin!");
+    alert("Base URL REST API disalin:\n" + copyText.value);
 }
 
 function exportToExcel() {
