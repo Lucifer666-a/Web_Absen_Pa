@@ -42,6 +42,20 @@ CREATE TABLE IF NOT EXISTS `presensi` (
   CONSTRAINT `fk_presensi_acara` FOREIGN KEY (`acara_id`) REFERENCES `acara` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 5. Tabel Presensi Apel (Apel Senin Pagi & Jumat Sore)
+CREATE TABLE IF NOT EXISTS `presensi_apel` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `nama` VARCHAR(150) NOT NULL,
+  `jabatan` VARCHAR(100) NOT NULL,
+  `tanda_tangan` MEDIUMTEXT NULL,
+  `sesi` ENUM('pagi', 'sore') NOT NULL,
+  `tanggal` DATE NOT NULL,
+  `waktu` TIME NOT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 -- Data Awal Pengaturan (Token URL Statis: TOKENSTATISANDROID)
 INSERT INTO `pengaturan` (`access_token`) 
 VALUES ('TOKENSTATISANDROID');

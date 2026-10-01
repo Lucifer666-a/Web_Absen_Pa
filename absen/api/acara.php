@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 // absen/api/acara.php
 // Endpoint REST API untuk mengambil daftar acara yang sedang BUKA
 

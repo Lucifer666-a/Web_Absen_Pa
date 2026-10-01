@@ -25,7 +25,8 @@ absen/
 ├── api/                   # REST API untuk Aplikasi Android
 │   ├── index.php          # Informasi service & endpoint API
 │   ├── acara.php          # GET: Daftar acara yang statusnya BUKA
-│   └── absen.php          # POST: Menerima dan validasi absensi dari Android
+│   ├── absen.php          # POST: Menerima absensi rapat dari Android
+│   └── absen_apel.php     # POST: Menerima absensi apel (pagi/sore) dari Android
 ├── assets/                # Styling CSS & JS
 ├── config/
 │   └── database.php       # Konfigurasi koneksi PDO MySQL & Helper
@@ -57,7 +58,7 @@ Semua endpoint menghasilkan response format **JSON** dengan header CORS aktif (`
 }
 ```
 
-### 2. Kirim Absensi Peserta
+### 2. Kirim Absensi Rapat / Acara
 - **URL**: `POST /absen/api/absen.php`
 - **Content-Type**: `application/json` (atau `application/x-www-form-urlencoded`)
 - **Request Body (JSON)**:
@@ -77,11 +78,33 @@ Semua endpoint menghasilkan response format **JSON** dengan header CORS aktif (`
   "message": "Absensi berhasil disimpan."
 }
 ```
-- **Response Error (400 / 401 / 404)**:
+
+### 3. Kirim Absensi Apel (Pagi / Sore)
+- **URL**: `POST /absen/api/absen_apel.php`
+- **Content-Type**: `application/json` (atau `application/x-www-form-urlencoded`)
+- **Request Body (JSON)**:
+```json
+{
+  "nama": "Budi Santoso",
+  "jabatan": "Staf IT",
+  "sesi": "pagi",
+  "tanda_tangan": "data:image/png;base64,iVBORw0KGgoAAA...",
+  "tanggal": "2026-10-05",
+  "waktu": "07:30:00"
+}
+```
+- **Response Sukses (200 OK)**:
+```json
+{
+  "status": "success",
+  "message": "Absensi apel berhasil disimpan."
+}
+```
+- **Response Error (400 / 500)**:
 ```json
 {
   "status": "error",
-  "message": "PIN acara salah."
+  "message": "Nilai sesi tidak valid ('siang'). Sesi harus 'pagi' atau 'sore'."
 }
 ```
 
@@ -90,7 +113,13 @@ Semua endpoint menghasilkan response format **JSON** dengan header CORS aktif (`
 ## 🗄️ Database & Akun Default
 
 - **Database Name**: `db_absen`
+- **Tabel Utama**:
+  - `admin`: Data login administrator.
+  - `acara`: Master acara rapat.
+  - `presensi`: Transaksi presensi rapat (relasional ke `acara`).
+  - `presensi_apel`: Transaksi presensi apel rutin (Senin pagi & Jumat sore).
 - **Default Admin**:
   - Username: `admin`
   - Password: `admin123`
+
 
