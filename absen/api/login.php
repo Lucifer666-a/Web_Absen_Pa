@@ -54,12 +54,17 @@ try {
         exit;
     }
 
-    // Success response
+    // Success response - sertakan jabatan & profil baik di root maupun di 'data' agar kompatibel dengan berbagai model Android
     http_response_code(200);
     echo json_encode([
-        'status'  => 'success',
-        'message' => 'Login berhasil.',
-        'data'    => [
+        'status'   => 'success',
+        'message'  => 'Login berhasil.',
+        'user_id'  => (int)$user['id'],
+        'username' => $user['username'],
+        'nama'     => $user['nama'],
+        'jabatan'  => $user['jabatan'],
+        'nip'      => $user['nip'],
+        'data'     => [
             'user_id'  => (int)$user['id'],
             'nip'      => $user['nip'],
             'nama'     => $user['nama'],

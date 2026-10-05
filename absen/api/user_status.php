@@ -114,8 +114,13 @@ try {
     http_response_code(200);
     echo json_encode([
         'status'          => 'success',
+        'user_id'         => (int)$user['id'],
+        'nama'            => $user['nama'],
+        'jabatan'         => $user['jabatan'],
+        'username'        => $user['username'],
         'user'            => [
             'id'       => (int)$user['id'],
+            'user_id'  => (int)$user['id'],
             'nip'      => $user['nip'],
             'nama'     => $user['nama'],
             'jabatan'  => $user['jabatan'],
