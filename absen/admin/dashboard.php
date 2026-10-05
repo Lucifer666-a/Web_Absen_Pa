@@ -9,9 +9,9 @@ $api_acara_url = $api_base_url . 'acara.php';
 $api_absen_url = $api_base_url . 'absen.php';
 $api_apel_url  = $api_base_url . 'absen_apel.php';
 
-// Tentukan Tab Aktif: 'rapat' atau 'apel'
+// Tentukan Tab Aktif: 'rapat', 'apel', atau 'users'
 $active_tab = $_GET['tab'] ?? 'rapat';
-if (!in_array($active_tab, ['rapat', 'apel'], true)) {
+if (!in_array($active_tab, ['rapat', 'apel', 'users'], true)) {
     $active_tab = 'rapat';
 }
 
@@ -71,6 +71,13 @@ $stmtApel->execute($paramsApel);
 $data_presensi_apel = $stmtApel->fetchAll();
 $total_apel = count($data_presensi_apel);
 
+// ----------------------------------------------------
+// DATA TAB 3: KELOLA USERS / PEGAWAI
+// ----------------------------------------------------
+$stmtUsers = $pdo->query("SELECT * FROM users ORDER BY nama ASC");
+$list_users = $stmtUsers->fetchAll();
+$total_users = count($list_users);
+
 $msg = $_GET['msg'] ?? '';
 ?>
 <!DOCTYPE html>
@@ -106,6 +113,10 @@ $msg = $_GET['msg'] ?? '';
 <div class="container pb-5">
     <?php if ($msg === 'success'): ?>
         <div class="alert alert-success">Perubahan berhasil disimpan.</div>
+    <?php elseif ($msg === 'error_duplicate'): ?>
+        <div class="alert alert-danger">NIP atau Username sudah digunakan oleh pengguna lain.</div>
+    <?php elseif ($msg === 'error_fields'): ?>
+        <div class="alert alert-warning">Mohon lengkapi seluruh field yang wajib diisi.</div>
     <?php elseif ($msg === 'error'): ?>
         <div class="alert alert-danger">Terjadi kesalahan pada sistem.</div>
     <?php endif; ?>
@@ -126,27 +137,31 @@ $msg = $_GET['msg'] ?? '';
                         <button class="btn btn-outline-primary" type="button" onclick="copyApiLink('linkApiBase')">Copy Base URL</button>
                     </div>
                     <div class="d-flex flex-wrap gap-2 mt-2">
+                        <span class="badge bg-info-subtle text-info-emphasis border" title="Login pengguna/pegawai">POST /api/login.php</span>
+                        <span class="badge bg-purple-subtle text-primary border" title="Ambil status harian & riwayat lintas device">GET /api/user_status.php</span>
                         <span class="badge bg-primary-subtle text-primary border" title="Ambil daftar acara rapat BUKA">GET /api/acara.php</span>
                         <span class="badge bg-success-subtle text-success border" title="Kirim presensi rapat">POST /api/absen.php</span>
                         <span class="badge bg-warning-subtle text-warning border text-dark" title="Kirim presensi apel pagi/sore">POST /api/absen_apel.php</span>
                     </div>
-                    <small class="text-muted d-block mt-2">*Aplikasi Android memanggil endpoint di atas untuk melakukan absensi rapat maupun presensi apel harian.</small>
+                    <small class="text-muted d-block mt-2">*Aplikasi Android memanggil endpoint di atas untuk login, sinkronisasi riwayat, dan absensi.</small>
                 </div>
             </div>
         </div>
         <div class="col-md-4 mb-3">
             <div class="card card-stat h-100">
-                <div class="card-body text-center d-flex flex-column justify-content-center">
-                    <button type="button" class="btn btn-primary w-100 mb-2 py-3" data-bs-toggle="modal" data-bs-target="#newAcaraModal">
+                <div class="card-body text-center d-flex flex-column justify-content-center gap-2">
+                    <button type="button" class="btn btn-primary w-100 py-2" data-bs-toggle="modal" data-bs-target="#newAcaraModal">
                         + Buat Acara Rapat Baru
                     </button>
-                    <small class="text-muted">Setiap acara rapat baru otomatis menutup acara sebelumnya.</small>
+                    <button type="button" class="btn btn-outline-success w-100 py-2" data-bs-toggle="modal" data-bs-target="#newUserModal">
+                        + Tambah Pegawai Baru
+                    </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Navigasi Tab (Absen Rapat vs Absen Apel) -->
+    <!-- Navigasi Tab (Absen Rapat vs Absen Apel vs Kelola Pegawai) -->
     <ul class="nav nav-tabs mb-3 border-bottom-0">
         <li class="nav-item">
             <a class="nav-link <?= $active_tab === 'rapat' ? 'active' : '' ?>" href="?tab=rapat<?= $selected_acara_id ? '&acara_id='.$selected_acara_id : '' ?>">
@@ -156,6 +171,11 @@ $msg = $_GET['msg'] ?? '';
         <li class="nav-item">
             <a class="nav-link <?= $active_tab === 'apel' ? 'active' : '' ?>" href="?tab=apel">
                 📣 Presensi Apel (Pagi / Sore)
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link <?= $active_tab === 'users' ? 'active' : '' ?>" href="?tab=users">
+                👥 Data Pegawai / Users (<?= $total_users ?>)
             </a>
         </li>
     </ul>
@@ -323,6 +343,60 @@ $msg = $_GET['msg'] ?? '';
                     <?php endif; ?>
                 </tbody>
             </table>
+        <?php elseif ($active_tab === 'users'): ?>
+            <!-- ================= TAB 3: DATA PEGAWAI / USERS ================= -->
+            <div class="row mb-3 align-items-center">
+                <div class="col-md-6">
+                    <h5 class="m-0 fw-bold">Daftar Pegawai / Pengguna Android</h5>
+                    <small class="text-muted">Akun ini digunakan pegawai untuk login di aplikasi Android.</small>
+                </div>
+                <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                    <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#newUserModal">
+                        + Tambah Pegawai Baru
+                    </button>
+                </div>
+            </div>
+
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>No</th>
+                        <th>NIP</th>
+                        <th>Nama Pegawai</th>
+                        <th>Jabatan</th>
+                        <th>Username</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php if ($total_users > 0): ?>
+                        <?php $no=1; foreach($list_users as $user): ?>
+                            <tr>
+                                <td><?= $no++ ?></td>
+                                <td><?= htmlspecialchars($user['nip'] ?: '-') ?></td>
+                                <td><strong><?= htmlspecialchars($user['nama']) ?></strong></td>
+                                <td><?= htmlspecialchars($user['jabatan']) ?></td>
+                                <td><span class="badge bg-secondary"><?= htmlspecialchars($user['username']) ?></span></td>
+                                <td>
+                                    <button class="btn btn-sm btn-outline-primary me-1" 
+                                            onclick="openEditUserModal(<?= htmlspecialchars(json_encode($user)) ?>)">
+                                        Edit / Password
+                                    </button>
+                                    <form action="manage_users.php" method="POST" class="d-inline" onsubmit="return confirm('Yakin ingin menghapus pegawai ini?');">
+                                        <input type="hidden" name="action" value="delete">
+                                        <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger">Hapus</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="6" class="text-center text-muted py-4">Belum ada pegawai terdaftar. Silakan klik tombol "Tambah Pegawai Baru".</td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
         <?php endif; ?>
     </div>
 </div>
@@ -360,6 +434,90 @@ $msg = $_GET['msg'] ?? '';
   </div>
 </div>
 
+<!-- Modal Tambah Pegawai Baru -->
+<div class="modal fade" id="newUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Tambah Pegawai Baru</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="manage_users.php" method="POST">
+          <input type="hidden" name="action" value="create">
+          <div class="modal-body">
+            <div class="mb-3">
+                <label class="form-label">NIP (Opsional)</label>
+                <input type="text" class="form-control" name="nip" placeholder="Contoh: 199001012020121001">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Nama Lengkap *</label>
+                <input type="text" class="form-control" name="nama" required placeholder="Contoh: Ahmad Fauzi">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Jabatan *</label>
+                <input type="text" class="form-control" name="jabatan" required placeholder="Contoh: Staf IT">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Username *</label>
+                <input type="text" class="form-control" name="username" required placeholder="Contoh: pegawai1">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password *</label>
+                <input type="password" class="form-control" name="password" required placeholder="Masukkan password awal">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-success">Simpan Pegawai</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Edit Pegawai -->
+<div class="modal fade" id="editUserModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Pegawai / Reset Password</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form action="manage_users.php" method="POST">
+          <input type="hidden" name="action" value="edit">
+          <input type="hidden" name="user_id" id="edit_user_id">
+          <div class="modal-body">
+            <div class="mb-3">
+                <label class="form-label">NIP (Opsional)</label>
+                <input type="text" class="form-control" name="nip" id="edit_nip">
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Nama Lengkap *</label>
+                <input type="text" class="form-control" name="nama" id="edit_nama" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Jabatan *</label>
+                <input type="text" class="form-control" name="jabatan" id="edit_jabatan" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Username *</label>
+                <input type="text" class="form-control" name="username" id="edit_username" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password Baru (Biarkan kosong jika tidak diubah)</label>
+                <input type="password" class="form-control" name="password" placeholder="Isi hanya jika ingin mereset password">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <button type="submit" class="btn btn-primary">Simpan Perubahan</button>
+          </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function copyApiLink(elementId) {
@@ -368,6 +526,16 @@ function copyApiLink(elementId) {
     copyText.setSelectionRange(0, 99999);
     navigator.clipboard.writeText(copyText.value);
     alert("Base URL REST API disalin:\n" + copyText.value);
+}
+
+function openEditUserModal(user) {
+    document.getElementById('edit_user_id').value = user.id;
+    document.getElementById('edit_nip').value = user.nip || '';
+    document.getElementById('edit_nama').value = user.nama || '';
+    document.getElementById('edit_jabatan').value = user.jabatan || '';
+    document.getElementById('edit_username').value = user.username || '';
+    var modal = new bootstrap.Modal(document.getElementById('editUserModal'));
+    modal.show();
 }
 
 function exportToExcel() {

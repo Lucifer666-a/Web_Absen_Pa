@@ -33,17 +33,29 @@ if (!is_array($input) || empty($input)) {
 
 // Petakan field:
 // Prioritas: acara_id > acaraId > event_id
-// TAMBAHAN: 'acara' (nama acara string) â†’ cari id-nya dari DB nanti
-$acara_id      = (int)(  $input['acara_id']     ?? $input['acaraId']     ?? $input['event_id']   ?? 0);
-$acara_nama_raw = trim(  $input['acara']        ?? ''); // Android mengirim nama acara sebagai string
-$nama          = trim(   $input['nama']          ?? $input['name']        ?? '');
-$jabatan       = trim(   $input['jabatan']       ?? $input['role']        ?? $input['instansi']   ?? '');
-$pin           = trim(   $input['pin']           ?? $input['pin_acara']   ?? $input['pinAcara']   ?? '');
-$tanda_tangan  = trim(   $input['tanda_tangan']  ?? $input['tandaTangan'] ?? $input['signature']  ?? '');
+// TAMBAHAN: 'acara' (nama acara string) -> cari id-nya dari DB nanti
+$user_id        = (int)(  $input['user_id']      ?? $input['userId']      ?? 0);
+$acara_id       = (int)(  $input['acara_id']     ?? $input['acaraId']     ?? $input['event_id']   ?? 0);
+$acara_nama_raw = trim(   $input['acara']        ?? ''); // Android mengirim nama acara sebagai string
+$nama           = trim(   $input['nama']          ?? $input['name']        ?? '');
+$jabatan        = trim(   $input['jabatan']       ?? $input['role']        ?? $input['instansi']   ?? '');
+$pin            = trim(   $input['pin']           ?? $input['pin_acara']   ?? $input['pinAcara']   ?? '');
+$tanda_tangan   = trim(   $input['tanda_tangan']  ?? $input['tandaTangan'] ?? $input['signature']  ?? '');
+
+// Jika user_id dikirim tapi nama/jabatan kosong -> auto-fetch dari DB users
+if ($user_id > 0 && ($nama === '' || $jabatan === '')) {
+    $stmtFetchUser = $pdo->prepare("SELECT nama, jabatan FROM users WHERE id = ? LIMIT 1");
+    $stmtFetchUser->execute([$user_id]);
+    $uData = $stmtFetchUser->fetch(PDO::FETCH_ASSOC);
+    if ($uData) {
+        if ($nama === '') $nama = $uData['nama'];
+        if ($jabatan === '') $jabatan = $uData['jabatan'];
+    }
+}
 
 // Validasi: laporkan field mana yang kosong agar mudah debug di Android
 $missing = [];
-// acara_id boleh 0 jika 'acara' (nama) dikirim â€” akan di-resolve dari DB
+// acara_id boleh 0 jika 'acara' (nama) dikirim -- akan di-resolve dari DB
 if ($acara_id <= 0 && $acara_nama_raw === '') $missing[] = 'acara_id (atau acara)';
 if ($nama === '')         $missing[] = 'nama';
 if ($jabatan === '')      $missing[] = 'jabatan';
@@ -68,7 +80,7 @@ if (strpos($tanda_tangan, 'data:image/') !== 0) {
 }
 
 try {
-    // Jika acara_id tidak dikirim tapi nama acara dikirim â†’ cari by nama
+    // Jika acara_id tidak dikirim tapi nama acara dikirim -> cari by nama
     if ($acara_id <= 0 && $acara_nama_raw !== '') {
         $stmtCari = $pdo->prepare("SELECT id, pin_acara, status FROM acara WHERE nama_acara = ? AND status = 'BUKA' LIMIT 1");
         $stmtCari->execute([$acara_nama_raw]);
@@ -95,9 +107,23 @@ try {
         exit;
     }
 
+    // Cek duplikasi jika user_id dikirim
+    if ($user_id > 0) {
+        $stmtCek = $pdo->prepare("SELECT id FROM presensi WHERE acara_id = ? AND user_id = ? LIMIT 1");
+        $stmtCek->execute([$acara_id, $user_id]);
+        if ($stmtCek->fetch()) {
+            http_response_code(409); // Conflict
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'Anda sudah terdaftar/absen pada acara/rapat ini.'
+            ]);
+            exit;
+        }
+    }
+
     // Simpan presensi
-    $stmt = $pdo->prepare("INSERT INTO presensi (acara_id, nama, jabatan, tanda_tangan) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$acara_id, $nama, $jabatan, $tanda_tangan]);
+    $stmt = $pdo->prepare("INSERT INTO presensi (acara_id, user_id, nama, jabatan, tanda_tangan) VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute([$acara_id, $user_id > 0 ? $user_id : null, $nama, $jabatan, $tanda_tangan]);
 
     http_response_code(200);
     echo json_encode(['status' => 'success', 'message' => 'Absensi berhasil disimpan.']);
@@ -106,3 +132,4 @@ try {
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Server error: ' . $e->getMessage()]);
 }
+

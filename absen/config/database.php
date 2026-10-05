@@ -19,9 +19,22 @@ $options = [
 try {
     $pdo = new PDO($dsn, $user, $pass, $options);
 
+    // Otomatis pastikan tabel users tersedia
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `users` (
+        `id` INT NOT NULL AUTO_INCREMENT,
+        `nip` VARCHAR(50) NULL UNIQUE,
+        `nama` VARCHAR(150) NOT NULL,
+        `jabatan` VARCHAR(100) NOT NULL,
+        `username` VARCHAR(50) NOT NULL UNIQUE,
+        `password` VARCHAR(255) NOT NULL,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
     // Otomatis pastikan tabel presensi_apel tersedia
     $pdo->exec("CREATE TABLE IF NOT EXISTS `presensi_apel` (
         `id` INT NOT NULL AUTO_INCREMENT,
+        `user_id` INT NULL,
         `nama` VARCHAR(150) NOT NULL,
         `jabatan` VARCHAR(100) NOT NULL,
         `tanda_tangan` MEDIUMTEXT NULL,
@@ -31,6 +44,20 @@ try {
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
+    // Pastikan kolom user_id ada pada presensi_apel jika tabel sudah terbuat sebelumnya
+    try {
+        $pdo->exec("ALTER TABLE `presensi_apel` ADD COLUMN `user_id` INT NULL AFTER `id`");
+    } catch (\PDOException $ex) {
+        // Kolom sudah ada
+    }
+
+    // Pastikan kolom user_id ada pada presensi jika tabel sudah terbuat sebelumnya
+    try {
+        $pdo->exec("ALTER TABLE `presensi` ADD COLUMN `user_id` INT NULL AFTER `acara_id`");
+    } catch (\PDOException $ex) {
+        // Kolom sudah ada
+    }
 
 } catch (\PDOException $e) {
     die("Koneksi Database Gagal: " . $e->getMessage());

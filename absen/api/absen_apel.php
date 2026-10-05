@@ -31,12 +31,24 @@ if (!is_array($input) || empty($input)) {
 }
 
 // Petakan field:
+$user_id       = (int)($input['user_id']     ?? $input['userId']     ?? 0);
 $nama          = trim($input['nama']         ?? $input['name']       ?? '');
 $jabatan       = trim($input['jabatan']      ?? $input['role']       ?? $input['instansi']  ?? '');
 $tanda_tangan  = trim($input['tanda_tangan'] ?? $input['tandaTangan']?? $input['signature'] ?? '');
 $sesi          = strtolower(trim($input['sesi'] ?? $input['session'] ?? ''));
 $tanggal       = trim($input['tanggal']      ?? $input['date']       ?? date('Y-m-d'));
 $waktu         = trim($input['waktu']        ?? $input['time']       ?? date('H:i:s'));
+
+// Jika user_id dikirim tapi nama/jabatan kosong -> auto-fetch dari DB users
+if ($user_id > 0 && ($nama === '' || $jabatan === '')) {
+    $stmtFetchUser = $pdo->prepare("SELECT nama, jabatan FROM users WHERE id = ? LIMIT 1");
+    $stmtFetchUser->execute([$user_id]);
+    $uData = $stmtFetchUser->fetch(PDO::FETCH_ASSOC);
+    if ($uData) {
+        if ($nama === '') $nama = $uData['nama'];
+        if ($jabatan === '') $jabatan = $uData['jabatan'];
+    }
+}
 
 // Validasi field kosong
 $missing = [];
@@ -73,9 +85,23 @@ if (strpos($tanda_tangan, 'data:image/') !== 0) {
 }
 
 try {
+    // Cek duplikasi jika user_id dikirim
+    if ($user_id > 0) {
+        $stmtCek = $pdo->prepare("SELECT id FROM presensi_apel WHERE user_id = ? AND tanggal = ? AND sesi = ? LIMIT 1");
+        $stmtCek->execute([$user_id, $tanggal, $sesi]);
+        if ($stmtCek->fetch()) {
+            http_response_code(409); // Conflict
+            echo json_encode([
+                'status'  => 'error',
+                'message' => 'Anda sudah melakukan absensi apel ' . strtoupper($sesi) . ' pada tanggal ini (' . $tanggal . ').'
+            ]);
+            exit;
+        }
+    }
+
     // Simpan presensi apel
-    $stmt = $pdo->prepare("INSERT INTO presensi_apel (nama, jabatan, tanda_tangan, sesi, tanggal, waktu) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$nama, $jabatan, $tanda_tangan, $sesi, $tanggal, $waktu]);
+    $stmt = $pdo->prepare("INSERT INTO presensi_apel (user_id, nama, jabatan, tanda_tangan, sesi, tanggal, waktu) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$user_id > 0 ? $user_id : null, $nama, $jabatan, $tanda_tangan, $sesi, $tanggal, $waktu]);
 
     http_response_code(200);
     echo json_encode([
@@ -90,3 +116,4 @@ try {
         'message' => 'Server error: ' . $e->getMessage()
     ]);
 }
+
