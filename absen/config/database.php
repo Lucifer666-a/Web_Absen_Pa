@@ -45,6 +45,20 @@ try {
         PRIMARY KEY (`id`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
 
+    // Otomatis pastikan tabel absensi_harian tersedia
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `absensi_harian` (
+        `id`              INT NOT NULL AUTO_INCREMENT,
+        `user_id`         INT NOT NULL,
+        `tanggal`         DATE NOT NULL,
+        `waktu_checkin`   TIME NULL,
+        `waktu_checkout`  TIME NULL,
+        `status_checkin`  ENUM('tepat_waktu', 'terlambat') NULL,
+        `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (`id`),
+        UNIQUE KEY `unique_user_tanggal` (`user_id`, `tanggal`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;");
+
     // Pastikan kolom user_id ada pada presensi_apel jika tabel sudah terbuat sebelumnya
     try {
         $pdo->exec("ALTER TABLE `presensi_apel` ADD COLUMN `user_id` INT NULL AFTER `id`");

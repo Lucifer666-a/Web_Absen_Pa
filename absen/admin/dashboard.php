@@ -139,6 +139,7 @@ $msg = $_GET['msg'] ?? '';
                     <div class="d-flex flex-wrap gap-2 mt-2">
                         <span class="badge bg-info-subtle text-info-emphasis border" title="Login pengguna/pegawai">POST /api/login.php</span>
                         <span class="badge bg-purple-subtle text-primary border" title="Ambil status harian & riwayat lintas device">GET /api/user_status.php</span>
+                        <span class="badge bg-success-subtle text-success border" title="Check-in & Check-out harian">POST /api/absen_harian.php</span>
                         <span class="badge bg-primary-subtle text-primary border" title="Ambil daftar acara rapat BUKA">GET /api/acara.php</span>
                         <span class="badge bg-success-subtle text-success border" title="Kirim presensi rapat">POST /api/absen.php</span>
                         <span class="badge bg-warning-subtle text-warning border text-dark" title="Kirim presensi apel pagi/sore">POST /api/absen_apel.php</span>

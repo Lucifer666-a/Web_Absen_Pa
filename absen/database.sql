@@ -72,6 +72,22 @@ CREATE TABLE IF NOT EXISTS `presensi_apel` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
+-- 7. Tabel Absensi Harian (Check-in Pagi & Check-out Sore)
+CREATE TABLE IF NOT EXISTS `absensi_harian` (
+  `id`              INT NOT NULL AUTO_INCREMENT,
+  `user_id`         INT NOT NULL,
+  `tanggal`         DATE NOT NULL,
+  `waktu_checkin`   TIME NULL,
+  `waktu_checkout`  TIME NULL,
+  `status_checkin`  ENUM('tepat_waktu', 'terlambat') NULL,
+  `created_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`      TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_user_tanggal` (`user_id`, `tanggal`),
+  CONSTRAINT `fk_harian_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 -- Data Awal Pengaturan (Token URL Statis: TOKENSTATISANDROID)
 INSERT INTO `pengaturan` (`access_token`) 
 VALUES ('TOKENSTATISANDROID');

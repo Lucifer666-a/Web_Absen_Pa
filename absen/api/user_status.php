@@ -61,21 +61,47 @@ try {
     $stmtApelSore->execute([$user_id, $today]);
     $apelSore = $stmtApelSore->fetch(PDO::FETCH_ASSOC);
 
+    // 2.b Cek Status Absensi Harian Hari Ini (Check-in & Check-out)
+    $stmtHarian = $pdo->prepare("SELECT waktu_checkin, waktu_checkout, status_checkin FROM absensi_harian WHERE user_id = ? AND tanggal = ? LIMIT 1");
+    $stmtHarian->execute([$user_id, $today]);
+    $absensiHarian = $stmtHarian->fetch(PDO::FETCH_ASSOC);
+
+    $absensiHarianHariIni = [
+        'checkin'        => $absensiHarian['waktu_checkin'] ?? null,
+        'checkout'       => $absensiHarian['waktu_checkout'] ?? null,
+        'status_checkin' => $absensiHarian['status_checkin'] ?? null
+    ];
+
     $statusHariIni = [
-        'tanggal'   => $today,
-        'apel_pagi' => [
+        'tanggal'                => $today,
+        'absensi_harian_hari_ini' => $absensiHarianHariIni,
+        'apel_pagi'              => [
             'sudah_absen'  => !empty($apelPagi),
             'waktu'        => $apelPagi['waktu'] ?? null,
             'tanda_tangan' => $apelPagi['tanda_tangan'] ?? null
         ],
-        'apel_sore' => [
+        'apel_sore'              => [
             'sudah_absen'  => !empty($apelSore),
             'waktu'        => $apelSore['waktu'] ?? null,
             'tanda_tangan' => $apelSore['tanda_tangan'] ?? null
         ]
     ];
 
-    // 3. Ambil Riwayat Keseluruhan (Apel + Rapat) milik user_id
+    // 3. Ambil Riwayat Keseluruhan (Apel + Rapat + Harian) milik user_id
+    // Query Harian
+    $stmtRiwayatHarian = $pdo->prepare("
+        SELECT 'harian' AS jenis, 
+               CONCAT('Absen Harian (', COALESCE(status_checkin, 'Check-in'), ')') AS judul, 
+               tanggal, 
+               COALESCE(waktu_checkin, waktu_checkout) AS waktu, 
+               NULL AS tanda_tangan, 
+               created_at
+        FROM absensi_harian 
+        WHERE user_id = ?
+    ");
+    $stmtRiwayatHarian->execute([$user_id]);
+    $riwayatHarian = $stmtRiwayatHarian->fetchAll(PDO::FETCH_ASSOC);
+
     // Query Apel
     $stmtRiwayatApel = $pdo->prepare("
         SELECT 'apel' AS jenis, 
@@ -106,19 +132,19 @@ try {
     $riwayatRapat = $stmtRiwayatRapat->fetchAll(PDO::FETCH_ASSOC);
 
     // Gabungkan & urutkan descending berdasarkan created_at
-    $semuaRiwayat = array_merge($riwayatApel, $riwayatRapat);
+    $semuaRiwayat = array_merge($riwayatHarian, $riwayatApel, $riwayatRapat);
     usort($semuaRiwayat, function ($a, $b) {
         return strtotime($b['created_at']) <=> strtotime($a['created_at']);
     });
 
     http_response_code(200);
     echo json_encode([
-        'status'          => 'success',
-        'user_id'         => (int)$user['id'],
-        'nama'            => $user['nama'],
-        'jabatan'         => $user['jabatan'],
-        'username'        => $user['username'],
-        'user'            => [
+        'status'                  => 'success',
+        'user_id'                 => (int)$user['id'],
+        'nama'                    => $user['nama'],
+        'jabatan'                 => $user['jabatan'],
+        'username'                => $user['username'],
+        'user'                    => [
             'id'       => (int)$user['id'],
             'user_id'  => (int)$user['id'],
             'nip'      => $user['nip'],
@@ -126,8 +152,9 @@ try {
             'jabatan'  => $user['jabatan'],
             'username' => $user['username']
         ],
-        'status_hari_ini' => $statusHariIni,
-        'riwayat_terbaru' => array_values($semuaRiwayat)
+        'absensi_harian_hari_ini' => $absensiHarianHariIni,
+        'status_hari_ini'         => $statusHariIni,
+        'riwayat_terbaru'         => array_values($semuaRiwayat)
     ]);
 
 } catch (\Exception $e) {
