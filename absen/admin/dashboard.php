@@ -259,7 +259,7 @@ $msg = $_GET['msg'] ?? '';
                 <p class="text-muted text-center py-4">Belum ada acara rapat yang dibuat.</p>
             <?php endif; ?>
 
-        <?php else: ?>
+        <?php elseif ($active_tab === 'apel'): ?>
             <!-- ================= TAB 2: PRESENSI APEL ================= -->
             <div class="row mb-3 align-items-center">
                 <div class="col-md-4">
