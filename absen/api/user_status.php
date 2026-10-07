@@ -62,7 +62,7 @@ try {
     $apelSore = $stmtApelSore->fetch(PDO::FETCH_ASSOC);
 
     // 2.b Cek Status Absensi Harian Hari Ini (Check-in & Check-out)
-    $stmtHarian = $pdo->prepare("SELECT waktu_checkin, waktu_checkout, status_checkin FROM absensi_harian WHERE user_id = ? AND tanggal = ? LIMIT 1");
+    $stmtHarian = $pdo->prepare("SELECT waktu_checkin, waktu_checkout FROM absensi_harian WHERE user_id = ? AND tanggal = ? LIMIT 1");
     $stmtHarian->execute([$user_id, $today]);
     $absensiHarian = $stmtHarian->fetch(PDO::FETCH_ASSOC);
 
@@ -91,7 +91,7 @@ try {
     // Query Harian
     $stmtRiwayatHarian = $pdo->prepare("
         SELECT 'harian' AS jenis, 
-               CONCAT('Absen Harian (', COALESCE(status_checkin, 'Check-in'), ')') AS judul, 
+               'Absen Harian' AS judul,
                tanggal, 
                COALESCE(waktu_checkin, waktu_checkout) AS waktu, 
                NULL AS tanda_tangan, 
@@ -137,6 +137,27 @@ try {
         return strtotime($b['created_at']) <=> strtotime($a['created_at']);
     });
 
+    // Apel bulan ini (untuk chip di beranda). Opsional ?bulan=2026-10
+    $bulan = $_GET['bulan'] ?? date('Y-m');
+    if (!preg_match('/^\d{4}-\d{2}$/', $bulan)) { $bulan = date('Y-m'); }
+    $awal  = $bulan . '-01';
+    $akhir = date('Y-m-t', strtotime($awal));
+
+    $stmtApelBulan = $pdo->prepare("
+        SELECT tanggal, sesi, waktu FROM presensi_apel
+        WHERE user_id = ? AND tanggal BETWEEN ? AND ?
+        ORDER BY tanggal
+    ");
+    $stmtApelBulan->execute([$user_id, $awal, $akhir]);
+
+    $apelBulanIni = ['bulan' => $bulan, 'pagi' => [], 'sore' => []];
+    foreach ($stmtApelBulan->fetchAll(PDO::FETCH_ASSOC) as $r) {
+        $sesi = strtolower($r['sesi']);
+        if (isset($apelBulanIni[$sesi])) {
+            $apelBulanIni[$sesi][] = $r['tanggal'];
+        }
+    }
+
     http_response_code(200);
     echo json_encode([
         'status'                  => 'success',
@@ -154,7 +175,8 @@ try {
         ],
         'absensi_harian_hari_ini' => $absensiHarianHariIni,
         'status_hari_ini'         => $statusHariIni,
-        'riwayat_terbaru'         => array_values($semuaRiwayat)
+        'riwayat_terbaru'         => array_values($semuaRiwayat),
+        'apel_bulan_ini'          => $apelBulanIni
     ]);
 
 } catch (\Exception $e) {

@@ -1,125 +1,58 @@
-# Web Absen Pa (Admin Panel & REST API Android)
+Dari tiga screenshot, panelmu sudah cukup jauh. Yang kurang terutama tab absen harian dan beberapa hal pelengkap.
 
-Sistem presensi rapat/acara yang terdiri dari **Admin Panel Web** dan **REST API** untuk terhubung dengan aplikasi **Android**.
+## Yang sudah ada
 
----
+| Bagian | Isi yang sudah jalan |
+|---|---|
+| **Header** | Nama panel, sapaan admin, tombol Logout |
+| **Kartu REST API** | Base URL, tombol salin, daftar endpoint (`login`, `user_status`, `absen_harian`, `acara`, `absen`, `absen_apel`) |
+| **Aksi cepat** | Buat Acara Rapat Baru, Tambah Pegawai Baru |
+| **Tab Presensi Rapat** | Pilih acara, info acara (nama, PIN, status), tombol ubah ke TUTUP, tabel (waktu, nama, jabatan, tanda tangan), Download Excel |
+| **Tab Presensi Apel** | Filter sesi dan rentang tanggal, tabel (tanggal dan jam, sesi, nama, jabatan, tanda tangan), Download Excel Apel |
+| **Tab Data Pegawai** | Daftar akun (NIP, nama, jabatan, username), Edit/Password, Hapus, Tambah Pegawai |
 
-## 🏗️ Arsitektur Sistem
+## Yang masih perlu ditambah
 
-- **Admin Panel (Web)**: Mengelola acara, melihat rekap presensi, memverifikasi tanda tangan digital, dan download laporan ke format Excel (`.xlsx`).
-- **REST API (Backend)**: Menerima request dari aplikasi mobile Android (daftar acara dan submit absensi).
-- **Aplikasi Android (Mobile)**: Antarmuka peserta untuk memilih acara, tanda tangan digital, input PIN kehadiran, dan kirim absensi.
+**Wajib (sesuai spesifikasi dan judul laporanmu)**
 
----
+| Yang ditambah | Keterangan |
+|---|---|
+| **Tab Absen Harian** | Satu-satunya tab yang belum ada. Kolom: nama, jabatan, tanggal, jam masuk, jam pulang, plus filter tanggal dan pegawai, plus **Download Excel** |
+| **Foto dokumentasi** | Kalau foto absen kerja dikirim ke server, tampilkan di tab harian (kolom atau tombol "lihat foto") dan sertakan di Excel |
+| **Proteksi akses admin di server** | Halaman dan endpoint unduh Excel harus mengecek login admin di PHP. Coba buka link unduh dalam jendela incognito tanpa login, dan pastikan ditolak |
 
-## 📁 Struktur Direktori
+**Sebaiknya ada**
 
-```text
-absen/
-├── admin/                 # Panel Administrator
-│   ├── auth_check.php     # Middleware proteksi sesi admin
-│   ├── dashboard.php      # Rekap kehadiran, info REST API, dan export Excel
-│   ├── login.php          # Halaman login admin
-│   ├── logout.php         # Logout admin
-│   └── manage_acara.php   # Handler tambah & ubah status acara (BUKA/TUTUP)
-├── api/                   # REST API untuk Aplikasi Android
-│   ├── index.php          # Informasi service & endpoint API
-│   ├── acara.php          # GET: Daftar acara yang statusnya BUKA
-│   ├── absen.php          # POST: Menerima absensi rapat dari Android
-│   └── absen_apel.php     # POST: Menerima absensi apel (pagi/sore) dari Android
-├── assets/                # Styling CSS & JS
-├── config/
-│   └── database.php       # Konfigurasi koneksi PDO MySQL & Helper
-├── database.sql           # Skema MySQL database (db_absen)
-└── index.php              # Redirect otomatis ke admin/login.php
-```
+| Yang ditambah | Alasan |
+|---|---|
+| **Rekap per pegawai per bulan** | Jumlah apel pagi, apel sore, dan rapat yang diikuti. Ini yang paling berguna untuk admin dan membuat sisi "informasi" terasa |
+| **Daftar yang tidak hadir** | Pegawai tanpa absen apel pada tanggal tertentu. Datanya bisa diturunkan dari tabel yang ada |
+| **Ringkasan angka di atas tabel** | Contoh: "Hadir 4 dari 5 pegawai" |
+| **Filter pegawai di tab apel** | Sekarang hanya ada filter sesi dan tanggal |
+| **Pencarian dan pagination** | Supaya tabel tetap cepat saat data bertambah |
+| **Daftar semua rapat** | Sekarang rapat dipilih lewat dropdown. Tambahkan tampilan daftar rapat dengan tanggal, status, serta aksi buka, tutup, edit, dan hapus |
+| **Nonaktifkan pegawai** | Ganti atau lengkapi tombol Hapus, karena menghapus akun bisa memutus relasi ke riwayat absennya |
 
----
+**Opsional**
 
-## 🚀 Endpoint REST API
+- Log aktivitas admin (siapa membuat atau menutup rapat, mereset password).
+- Ganti password admin sendiri.
+- Grafik kehadiran sederhana.
 
-Semua endpoint menghasilkan response format **JSON** dengan header CORS aktif (`Access-Control-Allow-Origin: *`).
+## Yang perlu diperbaiki dari screenshot
 
-### 1. Ambil Acara Aktif
-- **URL**: `GET /absen/api/acara.php`
-- **Response Sukses (200 OK)**:
-```json
-{
-  "status": "success",
-  "data": [
-    {
-      "id": 1,
-      "nama_acara": "Rapat Perdana Acara Default",
-      "pin_acara": "123456",
-      "status": "BUKA",
-      "created_at": "2026-09-30 22:00:00"
-    }
-  ]
-}
-```
+1. **Label "Pagi (Senin)" salah untuk 07/10/2026.** Tanggal itu hari Rabu, tapi baris deni tetap berlabel Senin. Label sepertinya ditempel dari nilai `sesi`, bukan dari harinya. Kalau validasi hari dan jam apel sudah ada di server, baris itu seharusnya tidak pernah masuk. Ini sekaligus bukti bahwa "validasi server" di judulmu belum terpasang.
+2. **Data pegawai tidak konsisten.** Contohnya akun "akjfh31" berusername `dain`, NIP `q9u3uprq` berisi huruf, dan username "Fernando Hasiholan" memuat spasi. Tambahkan validasi saat tambah dan edit: NIP angka dan unik, username tanpa spasi dan unik. Rapikan juga data ujinya sebelum screenshot masuk laporan.
+3. **PIN rapat `123456`.** Wajar untuk uji coba. Pastikan admin bisa mengisi PIN sendiri saat membuat rapat, sesuai spesifikasimu, dan batasi percobaan PIN salah di server.
+4. **Kartu "Integrasi REST API".** Berguna untuk dokumentasi dan demo, tapi menampilkan alamat dan daftar endpoint di halaman utama kurang aman untuk penggunaan nyata. Pindahkan ke tab Pengaturan atau sembunyikan setelah uji coba selesai.
+5. **Isi file Excel belum kulihat.** Dari screenshot hanya tombolnya yang terlihat. Cek sendiri hasil unduhan: apakah tanda tangan muncul sebagai gambar (bukan teks `data:image/png;base64...`), ada judul dan periode di atas tabel, dan ada catatan bahwa data berasal dari konfirmasi pegawai, bukan pengganti presensi resmi.
 
-### 2. Kirim Absensi Rapat / Acara
-- **URL**: `POST /absen/api/absen.php`
-- **Content-Type**: `application/json` (atau `application/x-www-form-urlencoded`)
-- **Request Body (JSON)**:
-```json
-{
-  "acara_id": 1,
-  "nama": "Budi Santoso",
-  "jabatan": "Staff IT",
-  "pin": "123456",
-  "tanda_tangan": "data:image/png;base64,iVBORw0KGgoAAA..."
-}
-```
-- **Response Sukses (200 OK)**:
-```json
-{
-  "status": "success",
-  "message": "Absensi berhasil disimpan."
-}
-```
+## Urutan pengerjaan yang kusarankan
 
-### 3. Kirim Absensi Apel (Pagi / Sore)
-- **URL**: `POST /absen/api/absen_apel.php`
-- **Content-Type**: `application/json` (atau `application/x-www-form-urlencoded`)
-- **Request Body (JSON)**:
-```json
-{
-  "nama": "Budi Santoso",
-  "jabatan": "Staf IT",
-  "sesi": "pagi",
-  "tanda_tangan": "data:image/png;base64,iVBORw0KGgoAAA...",
-  "tanggal": "2026-10-05",
-  "waktu": "07:30:00"
-}
-```
-- **Response Sukses (200 OK)**:
-```json
-{
-  "status": "success",
-  "message": "Absensi apel berhasil disimpan."
-}
-```
-- **Response Error (400 / 500)**:
-```json
-{
-  "status": "error",
-  "message": "Nilai sesi tidak valid ('siang'). Sesi harus 'pagi' atau 'sore'."
-}
-```
+1. Tab Absen Harian beserta unduh Excel.
+2. Cek proteksi login admin pada halaman dan unduhan.
+3. Validasi data pegawai dan nonaktifkan akun.
+4. Rekap per pegawai dan daftar tidak hadir.
+5. Perbaikan tampilan dan filter lainnya.
 
----
-
-## 🗄️ Database & Akun Default
-
-- **Database Name**: `db_absen`
-- **Tabel Utama**:
-  - `admin`: Data login administrator.
-  - `acara`: Master acara rapat.
-  - `presensi`: Transaksi presensi rapat (relasional ke `acara`).
-  - `presensi_apel`: Transaksi presensi apel rutin (Senin pagi & Jumat sore).
-- **Default Admin**:
-  - Username: `admin`
-  - Password: `admin123`
-
-
+Satu hal yang menentukan isi tab harian: **foto dokumentasi absen kerja itu ikut dikirim ke server, atau hanya tersimpan di HP?** Kalau dikirim, kolom foto perlu ada di tabel dan Excel. Kalau tidak, tab harian cukup berisi jam masuk dan pulang.

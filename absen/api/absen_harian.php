@@ -68,7 +68,7 @@ try {
         }
 
         $stmtRiwayat = $pdo->prepare("
-            SELECT id, tanggal, waktu_checkin, waktu_checkout, status_checkin, created_at 
+            SELECT id, tanggal, waktu_checkin, waktu_checkout, created_at 
             FROM absensi_harian 
             WHERE user_id = ? AND tanggal LIKE ? 
             ORDER BY tanggal DESC
@@ -88,57 +88,65 @@ try {
     }
 
     // METHOD POST (atau GET dengan param aksi): Prosedur Check-in / Check-out
-    if ($aksi === 'checkin') {
-        // Validation: Jam < 07:00
-        if ($currentTime < '07:00:00') {
-            http_response_code(403);
-            echo json_encode([
-                'success' => false,
-                'status'  => 'error',
-                'message' => 'Absensi check-in belum dibuka. Mulai jam 07:00.'
-            ]);
-            exit;
-        }
-
-        // Cek apakah sudah pernah check-in hari ini
-        $stmtCek = $pdo->prepare("SELECT * FROM absensi_harian WHERE user_id = ? AND tanggal = ? LIMIT 1");
-        $stmtCek->execute([$user_id, $today]);
-        $existing = $stmtCek->fetch(PDO::FETCH_ASSOC);
-
-        if ($existing && !empty($existing['waktu_checkin'])) {
-            http_response_code(409);
-            echo json_encode([
-                'success' => false,
-                'status'  => 'error',
-                'message' => 'Anda sudah melakukan check-in hari ini.'
-            ]);
-            exit;
-        }
-
-        $statusCheckin = ($currentTime <= '08:00:00') ? 'tepat_waktu' : 'terlambat';
-
-        if ($existing) {
-            $stmtUpdate = $pdo->prepare("UPDATE absensi_harian SET waktu_checkin = ?, status_checkin = ? WHERE id = ?");
-            $stmtUpdate->execute([$currentTime, $statusCheckin, $existing['id']]);
-        } else {
-            $stmtInsert = $pdo->prepare("INSERT INTO absensi_harian (user_id, tanggal, waktu_checkin, status_checkin) VALUES (?, ?, ?, ?)");
-            $stmtInsert->execute([$user_id, $today, $currentTime, $statusCheckin]);
-        }
-
-        http_response_code(200);
+if ($aksi === 'checkin') {
+    // Validasi: belum dibuka
+    if ($currentTime < '07:00:00') {
+        http_response_code(403);
         echo json_encode([
-            'success' => true,
-            'status'  => 'success',
-            'message' => 'Check-in berhasil dicatat.',
-            'data'    => [
-                'user_id'        => $user_id,
-                'tanggal'        => $today,
-                'waktu'          => $currentTime,
-                'waktu_checkin'  => $currentTime,
-                'status_checkin' => $statusCheckin
-            ]
+            'success' => false,
+            'status'  => 'error',
+            'message' => 'Absensi check-in belum dibuka. Mulai jam 07:00.'
         ]);
         exit;
+    }
+
+    // Validasi: sudah ditutup (otomatis ditolak, tidak ada status terlambat)
+    if ($currentTime > '08:10:00') {
+        http_response_code(403);
+        echo json_encode([
+            'success' => false,
+            'status'  => 'error',
+            'message' => 'Waktu check-in sudah ditutup (batas jam 08:10).'
+        ]);
+        exit;
+    }
+
+    // Cek apakah sudah pernah check-in hari ini
+    $stmtCek = $pdo->prepare("SELECT * FROM absensi_harian WHERE user_id = ? AND tanggal = ? LIMIT 1");
+    $stmtCek->execute([$user_id, $today]);
+    $existing = $stmtCek->fetch(PDO::FETCH_ASSOC);
+
+    if ($existing && !empty($existing['waktu_checkin'])) {
+        http_response_code(409);
+        echo json_encode([
+            'success' => false,
+            'status'  => 'error',
+            'message' => 'Anda sudah melakukan check-in hari ini.'
+        ]);
+        exit;
+    }
+
+    if ($existing) {
+        $stmtUpdate = $pdo->prepare("UPDATE absensi_harian SET waktu_checkin = ? WHERE id = ?");
+        $stmtUpdate->execute([$currentTime, $existing['id']]);
+    } else {
+        $stmtInsert = $pdo->prepare("INSERT INTO absensi_harian (user_id, tanggal, waktu_checkin) VALUES (?, ?, ?)");
+        $stmtInsert->execute([$user_id, $today, $currentTime]);
+    }
+
+    http_response_code(200);
+    echo json_encode([
+        'success' => true,
+        'status'  => 'success',
+        'message' => 'Check-in berhasil dicatat.',
+        'data'    => [
+            'user_id'       => $user_id,
+            'tanggal'       => $today,
+            'waktu'         => $currentTime,
+            'waktu_checkin' => $currentTime
+        ]
+    ]);
+    exit;
     }
 
     if ($aksi === 'checkout') {
@@ -154,15 +162,15 @@ try {
         }
 
         // Validation: Jam > 17:00
-        if ($currentTime > '17:00:00') {
-            http_response_code(403);
-            echo json_encode([
-                'success' => false,
-                'status'  => 'error',
-                'message' => 'Waktu check-out sudah lewat (tutup jam 17:00).'
-            ]);
-            exit;
-        }
+            if ($currentTime > '17:30:00') {
+                http_response_code(403);
+                echo json_encode([
+                    'success' => false,
+                    'status'  => 'error',
+                    'message' => 'Waktu check-out sudah lewat (tutup jam 17:30).'
+                ]);
+                exit;
+            }
 
         $stmtCek = $pdo->prepare("SELECT * FROM absensi_harian WHERE user_id = ? AND tanggal = ? LIMIT 1");
         $stmtCek->execute([$user_id, $today]);
@@ -201,7 +209,6 @@ try {
                 'tanggal'        => $today,
                 'waktu'          => $currentTime,
                 'waktu_checkout' => $currentTime,
-                'status_checkin' => $existing['status_checkin']
             ]
         ]);
         exit;
